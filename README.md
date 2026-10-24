@@ -12,31 +12,31 @@ Rhinoで日々繰り返す作図・レイヤー整理・色調整・印刷のた
 
 | ツール | 概要 | 対象・作用 | ファイル |
 | --- | --- | --- | --- |
-| **寸法をまとめて選択** | 図面内の寸法オブジェクトを追加選択 | 図面全体を検索／選択のみ | [コード](scripts/selectdim.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/selectdim.py) |
-| **文字・注釈をまとめて選択** | テキスト、引出線、寸法のうち文字を持つ注釈を追加選択 | 図面全体を検索／選択のみ | [コード](scripts/SelectTXT.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/SelectTXT.py) |
+| **寸法をまとめて選択** | 図面内の寸法オブジェクトを追加選択 | 図面全体を検索／選択のみ | [コード](scripts/selectdim.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/selectdim.py) |
+| **文字・注釈をまとめて選択** | テキスト、引出線、寸法のうち文字を持つ注釈を追加選択 | 図面全体を検索／選択のみ | [コード](scripts/SelectTXT.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/SelectTXT.py) |
 
 ### 2. レイヤー整理
 
 | ツール | 概要 | 対象・作用 | ファイル |
 | --- | --- | --- | --- |
-| **親子同名レイヤーのオブジェクト移動** | 親と子の名前が同じとき、子の中のオブジェクトを親へ移す | 図面全体／レイヤー変更 | [コード](scripts/%E8%A6%AA%E5%AD%90%E5%90%8C%E5%90%8D%E3%83%AC%E3%82%A4%E3%83%A4%E3%83%BC%E7%A7%BB%E5%8B%95.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/%E8%A6%AA%E5%AD%90%E5%90%8C%E5%90%8D%E3%83%AC%E3%82%A4%E3%83%A4%E3%83%BC%E7%A7%BB%E5%8B%95.py) |
+| **親子同名レイヤーのオブジェクト移動** | 親と子の名前が同じとき、子の中のオブジェクトを親へ移す | 図面全体／レイヤー変更 | [コード](scripts/MoveSameNameChildLayerObjects.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/MoveSameNameChildLayerObjects.py) |
 
 ### 3. 色・マテリアル
 
 | ツール | 概要 | 対象・作用 | ファイル |
 | --- | --- | --- | --- |
-| **レイヤー色をランダム化** | すべてのレイヤーにランダムな表示色を設定 | 図面全体／色変更 | [コード](scripts/RandomLayerColor.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/RandomLayerColor.py) |
-| **オブジェクト固有色で分類** | 選択オブジェクトをRGB別の子レイヤーに分け、同色材質を設定 | 選択物／レイヤー・材質変更 | [コード](scripts/CustomColor2Layer.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/CustomColor2Layer.py) |
-| **ハッチを色別レイヤーに分類** | 選択ハッチをRGB別レイヤーに分け、レイヤーに材質を割り当てる | 選択ハッチ／レイヤー・材質変更 | [コード](scripts/Hatch2LayerWithMaterial.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/Hatch2LayerWithMaterial.py) |
-| **レイヤー色から材質を生成** | 全レイヤーの色を基に材質を作成・再利用して割り当てる | 図面全体／材質変更・要改修 | [コード](scripts/RANDOM3.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/RANDOM3.py) |
+| **レイヤー色をランダム化** | すべてのレイヤーにランダムな表示色を設定 | 図面全体／色変更 | [コード](scripts/RandomLayerColor.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/RandomLayerColor.py) |
+| **オブジェクト固有色で分類** | 選択オブジェクトをRGB別の子レイヤーに分け、同色材質を設定 | 選択物／レイヤー・材質変更 | [コード](scripts/CustomColor2Layer.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/CustomColor2Layer.py) |
+| **ハッチを色別レイヤーに分類** | 選択ハッチをRGB別レイヤーに分け、レイヤーに材質を割り当てる | 選択ハッチ／レイヤー・材質変更 | [コード](scripts/Hatch2LayerWithMaterial.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/Hatch2LayerWithMaterial.py) |
+| **レイヤー色から材質を生成** | 全レイヤーの色を基に材質を作成・再利用して割り当てる | 図面全体／材質変更・要改修 | [コード](scripts/RANDOM3.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/RANDOM3.py) |
 
 ### 4. シート・印刷
 
 | ツール | 概要 | 対象・作用 | ファイル |
 | --- | --- | --- | --- |
-| **A3/A4用紙枠を一括配置** | サイズ、縦横、行列数、縮尺を指定し、マウスプレビューで配置 | モデル空間／枠作成 | [コード](scripts/rhino8_sheet_create.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/rhino8_sheet_create.py) |
-| **連続PDF出力** | 用紙枠を認識して複数ページPDFに出力 | モデル空間／PDF作成 | [コード](scripts/rhino8_sheet_batch_pdf_v03.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/rhino8_sheet_batch_pdf_v03.py) |
-| **ネイティブレイアウト変換** | 用紙枠をRhinoのレイアウトページ＋詳細ビューに変換 | レイアウトページ作成 | [コード](scripts/rhino8_sheet_to_layout_v04.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-sheet-tools/main/scripts/rhino8_sheet_to_layout_v04.py) |
+| **A3/A4用紙枠を一括配置** | サイズ、縦横、行列数、縮尺を指定し、マウスプレビューで配置 | モデル空間／枠作成 | [コード](scripts/rhino8_sheet_create.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/rhino8_sheet_create.py) |
+| **連続PDF出力** | 用紙枠を認識して複数ページPDFに出力 | モデル空間／PDF作成 | [コード](scripts/rhino8_sheet_batch_pdf_v03.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/rhino8_sheet_batch_pdf_v03.py) |
+| **ネイティブレイアウト変換** | 用紙枠をRhinoのレイアウトページ＋詳細ビューに変換 | レイアウトページ作成 | [コード](scripts/rhino8_sheet_to_layout_v04.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/rhino8_sheet_to_layout_v04.py) |
 
 ## 使い方
 
@@ -74,11 +74,11 @@ Pythonの追加パッケージはコード上では要求しておらず、主�
 | `RandomLayerColor.py` | **選択物に限らずすべてのレイヤー色を変更**します。元の配色を保持したい場合はコピーを作成してください。 |
 | `RANDOM3.py` | **要改修・要実機検証**。マテリアル生成APIの互換性に疑義があり、現在のRhino 8での成功を保証できません。 |
 | `CustomColor2Layer.py` | 同じオブジェクトへの繰り返し実行で子レイヤーが多重に作られる可能性があります。実行前後に構造を確認してください。 |
-| `親子同名レイヤー移動.py` | 子レイヤーの**オブジェクトのみ**親へ移動します。空になった子レイヤーは削除しません。 |
+| `MoveSameNameChildLayerObjects.py` | 子レイヤーの**オブジェクトのみ**親へ移動します。空になった子レイヤーは削除しません。 |
 | `Hatch2LayerWithMaterial.py` | 選択ハッチのRGBに従ってレイヤー・材質が変更されます。元のレイヤー構成を残す場合はコピーで試してください。 |
-| `RandomLayerColor.py`・`親子同名レイヤー移動.py` | エラー時に画面の再描画状態が復帰しない可能性がある旧コードです。公開中ですが改修候補です。 |
+| `RandomLayerColor.py`・`MoveSameNameChildLayerObjects.py` | エラー時に画面の再描画状態が復帰しない可能性がある旧コードです。公開中ですが改修候補です。 |
 
-**状態**：コードを収録・整理した段階です。個別ツールの互換性・バグ修正・実機検証は順次進めます。質問、不具合、改善案は [GitHub Issues](https://github.com/satw-jp/rhino-sheet-tools/issues) へ。
+**状態**：コードを収録・整理した段階です。個別ツールの互換性・バグ修正・実機検証は順次進めます。質問、不具合、改善案は [GitHub Issues](https://github.com/satw-jp/rhino-tools/issues) へ。
 
 ## 開発・管理
 
