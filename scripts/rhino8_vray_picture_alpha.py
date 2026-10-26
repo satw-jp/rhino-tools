@@ -1,5 +1,4 @@
 #! python3
-# r: pillow
 # -*- coding: utf-8 -*-
 """Apply PNG cutout alpha through Rhino PBR, supported by V-Ray.
 
@@ -7,15 +6,15 @@ Rhino 8 Windows / Python 3. Host/render integration is not yet certified.
 See docs/vray-picture-alpha.md. The default is a read-only dry-run.
 """
 import hashlib
-import io
 import json
 import math
 import os
 import shutil
 import tempfile
-import warnings
+import struct
+import zlib
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 
 class PreflightError(RuntimeError):
@@ -26,31 +25,92 @@ class ApplyError(RuntimeError):
     """Includes rollback errors rather than claiming a successful restoration."""
 
 
+def png_chunk(kind, payload):
+    return (struct.pack(">I", len(payload)) + kind + payload
+            + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff))
+
+
+def png_metadata(data):
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise PreflightError("PNG required")
+    position, chunks = 8, []
+    while position + 12 <= len(data):
+        length = struct.unpack(">I", data[position:position + 4])[0]
+        end = position + 12 + length
+        if end > len(data):
+            raise PreflightError("Truncated PNG")
+        kind = data[position + 4:position + 8]
+        payload = data[position + 8:position + 8 + length]
+        crc = struct.unpack(">I", data[position + 8 + length:end])[0]
+        if zlib.crc32(kind + payload) & 0xffffffff != crc:
+            raise PreflightError("PNG checksum mismatch")
+        chunks.append((kind, payload))
+        position = end
+        if kind == b"IEND":
+            break
+    if (not chunks or chunks[0][0] != b"IHDR" or len(chunks[0][1]) != 13
+            or chunks[-1] != (b"IEND", b"") or position != len(data)):
+        raise PreflightError("Invalid PNG structure")
+    width, height, depth, color, compression, filtering, interlace = struct.unpack(
+        ">IIBBBBB", chunks[0][1])
+    if (not width or not height or width * height > 16000000
+            or depth == 16 or compression != 0 or filtering != 0 or interlace not in (0, 1)):
+        raise PreflightError("Unsupported PNG (16-bit or over 16 million pixels)")
+    if b"acTL" in [kind for kind, _ in chunks]:
+        raise PreflightError("Static PNG required")
+    if color not in (4, 6) and not any(kind == b"tRNS" for kind, _ in chunks):
+        raise PreflightError("PNG has no alpha/tRNS")
+    return width, height
+
+
+def _decode_windows(data):
+    """Use Rhino's installed .NET / Windows GDI+. No pip, NuGet or download."""
+    if os.name != "nt":
+        raise PreflightError("PNG decoding requires Rhino's Windows .NET runtime")
+    import clr
+    clr.AddReference("System.Drawing")
+    from System import Array, Byte
+    from System.Drawing import Bitmap
+    from System.IO import MemoryStream
+    stream = MemoryStream(Array[Byte](data))
+    bitmap = None
+    try:
+        bitmap = Bitmap(stream)
+        width, height = int(bitmap.Width), int(bitmap.Height)
+        # GetPixel supports indexed/gray/RGBA images without unsafe pixel-format
+        # conversions. Alpha is taken directly; RGB/color management is irrelevant.
+        pixels = bytes(int(bitmap.GetPixel(x, y).A)
+                       for y in range(height) for x in range(width))
+        return width, height, pixels
+    finally:
+        if bitmap is not None:
+            bitmap.Dispose()
+        stream.Dispose()
+
+
+def encode_alpha_png(width, height, pixels):
+    if len(pixels) != width * height:
+        raise PreflightError("Decoded alpha size mismatch")
+    scanlines = b"".join(b"\x00" + pixels[y * width:(y + 1) * width]
+                         for y in range(height))
+    return (b"\x89PNG\r\n\x1a\n"
+            + png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0))
+            + png_chunk(b"IDAT", zlib.compress(scanlines)) + png_chunk(b"IEND", b""))
+
+
 def read_png(path):
-    from PIL import Image
     with open(path, "rb") as stream:
         data = stream.read()
-    # Pillow's 16-bit RGBA conversion would lose alpha precision.
-    if len(data) < 33 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[24] == 16:
-        raise PreflightError("PNG required; 16-bit PNG is not supported: " + path)
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", Image.DecompressionBombWarning)
-        with Image.open(io.BytesIO(data)) as image:
-            if image.format != "PNG" or getattr(image, "n_frames", 1) != 1:
-                raise PreflightError("Static PNG required: " + path)
-            image.load()
-            if "A" not in image.getbands() and "transparency" not in image.info:
-                raise PreflightError("PNG has no alpha/tRNS: " + path)
-            alpha = image.convert("RGBA").getchannel("A")
-            extrema = alpha.getextrema()
-            if extrema == (255, 255):
-                raise PreflightError("PNG is fully opaque: " + path)
-            output = io.BytesIO()
-            # No color/gamma profile, no inversion, no threshold/resizing/flipping.
-            alpha.save(output, format="PNG")
-            return {"sha256": hashlib.sha256(data).hexdigest(),
-                    "size": list(image.size), "alpha_range": list(extrema),
-                    "mask_bytes": output.getvalue()}
+    width, height = png_metadata(data)
+    decoded_width, decoded_height, pixels = _decode_windows(data)
+    if (decoded_width, decoded_height) != (width, height) or len(pixels) != width * height:
+        raise PreflightError("Decoded PNG size mismatch")
+    extrema = (min(pixels), max(pixels))
+    if extrema == (255, 255):
+        raise PreflightError("PNG is fully opaque: " + path)
+    return {"sha256": hashlib.sha256(data).hexdigest(),
+            "size": [width, height], "alpha_range": list(extrema),
+            "mask_bytes": encode_alpha_png(width, height, pixels)}
 
 
 def resolve_image(path, document_path):

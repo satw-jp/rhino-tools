@@ -1,17 +1,76 @@
 """Real PNG tests and fault injection; no Rhino/V-Ray render is simulated as proof."""
 import copy
 import importlib.util
-import io
+import os
+import struct
+import zlib
 from pathlib import Path
 import tempfile
 import unittest
 
-from PIL import Image
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location(
     "alpha", Path(__file__).resolve().parents[1] / "scripts/rhino8_vray_picture_alpha.py")
 alpha = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(alpha)
+
+
+def fixture_chunk(kind, payload):
+    return (struct.pack(">I", len(payload)) + kind + payload
+            + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff))
+
+
+def fixture_png(width, height, raw_rows, color=6, depth=8, extras=b""):
+    return (b"\x89PNG\r\n\x1a\n" + fixture_chunk(b"IHDR", struct.pack(
+        ">IIBBBBB", width, height, depth, color, 0, 0, 0)) + extras
+        + fixture_chunk(b"IDAT", zlib.compress(raw_rows)) + fixture_chunk(b"IEND", b""))
+
+
+def write_rgba(path, values):
+    raw = b"".join(b"\x00" + b"".join(bytes((10, 20, 30, a))
+                                    for a in values[y * 2:(y + 1) * 2]) for y in range(2))
+    Path(path).write_bytes(fixture_png(2, 2, raw))
+
+
+def fixture_chunks(data):
+    position, result = 8, {}
+    while position < len(data):
+        length = struct.unpack(">I", data[position:position + 4])[0]
+        kind = data[position + 4:position + 8]
+        result[kind] = result.get(kind, b"") + data[position + 8:position + 8 + length]
+        position += 12 + length
+    return result
+
+
+def decode_fixture(data):
+    """Offline stand-in for GDI+: only our unfiltered RGBA/palette fixtures.
+
+    This is NOT evidence that the Windows decoder works.
+    """
+    chunks = fixture_chunks(data)
+    width, height, depth, color, _, _, _ = struct.unpack(">IIBBBBB", chunks[b"IHDR"])
+    raw = zlib.decompress(chunks[b"IDAT"])
+    if color == 6:
+        pixels = b"".join(raw[y * (width * 4 + 1) + 1:(y + 1) * (width * 4 + 1)][3::4]
+                          for y in range(height))
+    elif color == 3:
+        palette_alpha = chunks[b"tRNS"]
+        pixels = bytes(palette_alpha[index] if index < len(palette_alpha) else 255
+                       for index in raw[1:])
+    else:
+        raise AssertionError("Unexpected fixture format")
+    return width, height, pixels
+
+
+def mask_pixels(data):
+    chunks = fixture_chunks(data)
+    width, height, depth, color, _, _, _ = struct.unpack(">IIBBBBB", chunks[b"IHDR"])
+    assert (depth, color) == (8, 0)
+    raw = zlib.decompress(chunks[b"IDAT"])
+    assert all(raw[y * (width + 1)] == 0 for y in range(height))
+    return (width, height), b"".join(raw[y * (width + 1) + 1:(y + 1) * (width + 1)]
+                                    for y in range(height))
 
 
 class FakeHost:
@@ -98,42 +157,42 @@ class AlphaTests(unittest.TestCase):
         self.paths = []
         for i, values in enumerate(([0, 64, 128, 255], [255, 160, 80, 0])):
             path = self.folder / ("source-{}.png".format(i))
-            image = Image.new("RGBA", (2, 2))
-            image.putdata([(10, 20, 30, value) for value in values])
-            image.save(path)
+            write_rgba(path, values)
             self.paths.append(str(path))
         self.initial_files = set(self.folder.iterdir())
+        decoder = patch.object(alpha, "_decode_windows", side_effect=decode_fixture)
+        decoder.start()
+        self.addCleanup(decoder.stop)
 
     def tearDown(self):
         self.temp.cleanup()
 
     def test_alpha_bytes_exact_not_inverted_or_flipped(self):
         result = alpha.read_png(self.paths[0])
-        with Image.open(io.BytesIO(result["mask_bytes"])) as mask:
-            self.assertEqual(mask.size, (2, 2))
-            self.assertEqual(list(mask.getdata()), [0, 64, 128, 255])
+        size, pixels = mask_pixels(result["mask_bytes"])
+        self.assertEqual(size, (2, 2))
+        self.assertEqual(list(pixels), [0, 64, 128, 255])
         self.assertEqual(result["alpha_range"], [0, 255])
 
     def test_palette_trns_supported(self):
         path = self.folder / "palette.png"
-        image = Image.new("P", (2, 1))
-        image.putpalette([0, 0, 0, 255, 255, 255] + [0] * 762)
-        image.putdata([0, 1])
-        image.save(path, transparency=0)
+        extras = fixture_chunk(b"PLTE", bytes((0, 0, 0, 255, 255, 255)))
+        extras += fixture_chunk(b"tRNS", b"\x00")
+        path.write_bytes(fixture_png(2, 1, b"\x00\x00\x01", color=3, extras=extras))
         result = alpha.read_png(str(path))
-        with Image.open(io.BytesIO(result["mask_bytes"])) as mask:
-            self.assertEqual(list(mask.getdata()), [0, 255])
+        self.assertEqual(list(mask_pixels(result["mask_bytes"])[1]), [0, 255])
 
     def test_no_alpha_or_fully_opaque_refused(self):
         for mode in ("RGB", "RGBA"):
             path = self.folder / "opaque.png"
-            Image.new(mode, (1, 1), "white").save(path)
+            color = 2 if mode == "RGB" else 6
+            path.write_bytes(fixture_png(1, 1, b"\x00" + b"\xff" * (3 if color == 2 else 4), color=color))
             with self.assertRaises(alpha.PreflightError):
                 alpha.read_png(str(path))
 
     def test_16bit_and_broken_png_refused(self):
         path = self.folder / "bad.png"
-        Image.new("I;16", (2, 2)).save(path)
+        path.write_bytes(fixture_png(1, 1, b"\x00" + b"\x00" * 8, depth=16))
         with self.assertRaises(alpha.PreflightError):
             alpha.read_png(str(path))
         path.write_bytes(b"broken")
@@ -194,7 +253,7 @@ class AlphaTests(unittest.TestCase):
     def test_image_change_or_stale_plan_refused_before_writes(self):
         host = FakeHost(self.paths)
         plan = alpha.prepare(host, ["0", "1"])
-        Image.new("RGBA", (2, 2), (0, 0, 0, 0)).save(self.paths[1])
+        write_rgba(self.paths[1], [0, 0, 0, 0])
         with self.assertRaises(alpha.PreflightError):
             alpha.apply(host, plan, str(self.folder))
         self.assertNotIn("build", host.calls)
@@ -223,6 +282,45 @@ class AlphaTests(unittest.TestCase):
         for key, value in (("channel", 7), ("matrix", [0] * 16)):
             other = dict(uv, **{key: value})
             self.assertFalse(alpha.same_uv(uv, other))
+
+
+    def test_checksum_animation_and_decoder_size_refused(self):
+        data = bytearray(Path(self.paths[0]).read_bytes())
+        data[-1] ^= 1
+        with self.assertRaises(alpha.PreflightError):
+            alpha.png_metadata(bytes(data))
+        animation = fixture_chunk(b"acTL", struct.pack(">II", 1, 0))
+        data = fixture_png(1, 1, b"\x00\x00\x00\x00\x00", extras=animation)
+        with self.assertRaises(alpha.PreflightError):
+            alpha.png_metadata(data)
+        with patch.object(alpha, "_decode_windows", return_value=(1, 1, b"\x00")):
+            with self.assertRaises(alpha.PreflightError):
+                alpha.read_png(self.paths[0])
+
+    def test_no_package_install_directive_or_pillow_import(self):
+        source = Path(spec.origin).read_text()
+        self.assertNotIn("# r:", source)
+        self.assertNotIn("from PIL", source)
+        self.assertNotIn("pip install", source)
+
+
+@unittest.skipUnless(os.name == "nt", "Windows .NET decoder integration requires Rhino Python 3")
+class WindowsDecoderTests(unittest.TestCase):
+    def test_native_rgba_alpha_and_row_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "native.png"
+            write_rgba(path, [0, 64, 128, 255])
+            result = alpha.read_png(str(path))
+            self.assertEqual(mask_pixels(result["mask_bytes"]), ((2, 2), bytes([0, 64, 128, 255])))
+
+    def test_native_palette_transparency(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "palette.png"
+            extras = fixture_chunk(b"PLTE", bytes((0, 0, 0, 255, 255, 255)))
+            extras += fixture_chunk(b"tRNS", b"\x00")
+            path.write_bytes(fixture_png(2, 1, b"\x00\x00\x01", color=3, extras=extras))
+            result = alpha.read_png(str(path))
+            self.assertEqual(mask_pixels(result["mask_bytes"])[1], bytes([0, 255]))
 
 
 if __name__ == "__main__":

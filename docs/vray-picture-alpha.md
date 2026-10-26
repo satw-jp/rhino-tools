@@ -3,7 +3,8 @@
 [コード](../scripts/rhino8_vray_picture_alpha.py) · [ダウンロード](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/rhino8_vray_picture_alpha.py) · [テスト](../tests/test_vray_picture_alpha.py)
 
 **状態：Apply処理を実装済み。Rhino 8 Windows / V-Ray 7.40.02の実機・実レンダリングは未検証。**
-診断専用の旧版と異なり、Applyを選ぶと材質を変更します。実機確認済みの安定版という意味ではありません。
+**v1.0.1から外部インストール不要です。** パッケージ依存宣言・pip・NuGet・自動ダウンロードはありません。
+旧ファイルは最新版で置き換えてください。診断専用の旧版と異なり、Applyを選ぶと材質を変更します。実機確認済みの安定版という意味ではありません。
 
 ## 何を変更するか
 
@@ -28,7 +29,8 @@ V-Ray内部の設定名・数値を推測した書込み、vrayMtlFromRhinoの�
 1. 元モデルを別名保存して開き、V-Rayのインタラクティブレンダリングを停止します。
 2. 既存Pictureをオブジェクト単位で選択します。
 3. 上記のPythonファイルを保存し、Rhino 8の **ScriptEditor / Python 3** で実行します。
-   先頭の `# r: pillow` はRhinoのパッケージ依存宣言です。初回はPillowの取得が必要です。
+   Python 2の旧エディタでは実行できません。外部ライブラリの取得要求は出しません。
+   Windowsの.NET `System.Drawing` を読み込めない場合は、インストールを試みず停止します。
 4. コマンド出力の対象ID、元画像パス、UV、画像サイズ、アルファ範囲を確認します。
 5. **DryRun（既定）** またはキャンセルなら、モデル変更とマスク書出しをしません。
 6. **Apply** を選び、マスクを保存しておくフォルダを指定します。
@@ -46,7 +48,9 @@ V-Ray内部の設定名・数値を推測した書込み、vrayMtlFromRhinoの�
 ## 対応範囲
 
 ネイティブのPicture材質と通常のBitmapを持ち、外部PNGを読み取れるPictureが対象です。
-RGBA、LA、パレットPNGのtRNSをデコードします。8bit未満のPNGもPillowで8bitマスクに展開します。
+RGBA、LA、パレットPNGのtRNSはWindowsのGDI+でデコードする設計です（実機未検証）。
+PNGの構造・CRCをPython標準ライブラリで確認し、GDI+からアルファ値を読み、標準ライブラリで8bitマスクへ書き出します。
+1600万画素を超える画像は事前に拒否します。画素を順に読むため、大きな画像では処理に時間がかかります。
 16bit PNG、アニメーションPNG、アルファなし／完全不透明PNG、埋込のみで外部ファイルがない画像は拒否します。
 ロック／参照／ブロック定義内／面別材質／動的変換中の対象、既にV-Ray材質やPBRへ変換された対象も拒否します。
 一度適用した材質を再び変換するツールではありません。やり直しはUndo後に実行してください。
@@ -68,6 +72,8 @@ RGBA、LA、パレットPNGのtRNSをデコードします。8bit未満のPNGも
   事前検査でテクスチャをベイクしません。UV照合が不一致なら適用を拒否します。
 - [RenderMaterialTable](https://mcneel.github.io/rhinocommon-api-docs/api/RhinoCommon/html/T_Rhino_Render_RenderMaterialTable.htm)
   のAdd/Removeと、複製したObjectAttributesのRenderMaterial設定・ModifyAttributesを使用します。
+- [Microsoft：Bitmap.GetPixel](https://learn.microsoft.com/en-us/dotnet/api/system.drawing.bitmap.getpixel)
+  でPNGのアルファを読みます。Rhinoの既存.NETランタイムを使用し、アセンブリやパッケージは追加インストールしません。
 - [Chaos：Script Access](https://docs-chaos.atlassian.net/wiki/spaces/VRHINO/pages/116130923/V-Ray%2BScript%2BAccess)
   で確認できるのはRhino 8 CPythonの `rh8VRay`、`Param(name).Value`、`Scene.Transaction()` などです。
   UI用user-dataは対象版から書き出した `.vrmat` で名前を確認する必要があります。
@@ -76,10 +82,12 @@ RGBA、LA、パレットPNGのtRNSをデコードします。8bit未満のPNGも
 
 ## 実施した検証
 
-`python3 -m pip install pillow` のある環境で、リポジトリ直下から
+外部パッケージ不要で、リポジトリ直下から
 `python3 -m unittest discover -s tests -v` を実行します。
 
-- 実画像：アルファ値0/64/128/255を画素単位で比較、向き・サイズ維持、パレットtRNS。
+- 標準ライブラリで生成したPNGフィクスチャとデコーダーの代替で、アルファ値0/64/128/255のマスク書出し、向き・サイズ、パレットtRNSを確認。
+- Windowsネイティブデコーダーを通すRGBA／パレットの統合テスト2件を追加。Windows以外ではスキップ。
+- 外部パッケージの依存宣言・Pillowインポートがないこと、CRC不一致・アニメーション・デコード寸法不一致の拒否。
 - 不正入力：アルファなし、完全不透明、16bit、壊れた画像、欠損・未解決パス。
 - 制御：既定dry-runが書込みを呼ばないこと、対象全体の事前検査、個別パスの引継ぎ、画像変更の検知。
 - 障害注入：材質生成、Undo開始、材質追加、割当、検証の各失敗後の復元と資材削除。
@@ -87,7 +95,8 @@ RGBA、LA、パレットPNGのtRNSをデコードします。8bit未満のPNGも
 - UV比較：行列・マッピングチャンネル変更を検出すること。
 
 **上記はPNG処理とモックホストによるテストです。RhinoCommonの実動作やV-Rayレンダリングを代替しません。**
-2026-10-26のローカル実行結果：適用版14件＋旧診断版8件、計22件成功。
+2026-10-26、v1.0.1のローカル実行結果：26件中24件成功、Windows統合テスト2件はスキップ。
+WindowsのGDI+による画素読取りはこの実行結果では検証していません。
 Windows/Rhino/V-Rayはこの開発環境にないため、以下は未検証です。
 
 ## FOLLOW-UP：実機受入確認
