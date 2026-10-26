@@ -1,6 +1,6 @@
 # Rhino Tools — SATW
 
-Rhinoで日々繰り返す作図・レイヤー整理・色調整・印刷のための、小さなPythonツール集です。**10ツールをこの1ページから探して使えます。**
+Rhinoで日々繰り返す作図・レイヤー整理・色調整・印刷のための、小さなPythonツール集です。**11ツールをこの1ページから探して使えます。**
 
 [選択](#1-選択) ｜ [レイヤー整理](#2-レイヤー整理) ｜ [色・マテリアル](#3-色マテリアル) ｜ [シート・印刷](#4-シート印刷) ｜ [使い方](#使い方) ｜ [注意事項](#注意事項)
 
@@ -23,13 +23,15 @@ Rhinoで日々繰り返す作図・レイヤー整理・色調整・印刷のた
 
 ### 3. 色・マテリアル
 
-**Picture / V-Ray PNGアルファ（診断版・適用未実装）**：
-[説明・未検証事項](docs/vray-picture-alpha.md) ·
-[診断コード](scripts/rhino8_vray_picture_alpha_probe.py) ·
-[テスト](tests/test_vray_picture_alpha_probe.py)。
-Rhino 8 Windows / V-Ray 7.40.02を対象に調査中です。
-選択物ごとの画像パス候補と連携情報を読み取るdry-runのみで、透明度を修正する最終版ではありません。
-適用は安全のため無効です。既存の10ツールの数には含めません。
+**Picture / V-Ray PNGアルファ修正（Apply実装済み・実機未検証）**：
+[使い方・制約](docs/vray-picture-alpha.md) ·
+[コード](scripts/rhino8_vray_picture_alpha.py) ·
+[↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/rhino8_vray_picture_alpha.py) ·
+[テスト](tests/test_vray_picture_alpha.py)。
+PNGのアルファを抽出し、各Pictureへ専用のPBR材質を割り当てます。既定はDryRun、明示的にApplyで適用します。
+位置・サイズ・既存UVを変更せず、元画像パスを個別に引き継ぐ設計です。
+**Rhino 8 Windows / V-Ray 7.40.02の実レンダリングは未検証**。元のPictureとは照明表現が変わります。
+Pillowが必要です。旧診断版ではなく、上記の適用版を使用してください。
 
 | ツール | 概要 | 対象・作用 | ファイル |
 | --- | --- | --- | --- |
@@ -52,7 +54,7 @@ Rhino 8 Windows / V-Ray 7.40.02を対象に調査中です。
 2. Rhino 8 の **ScriptEditor** で `.py` を開き、Python環境を選んで実行する。新規追加の7ツールはPython環境との互換性も含めて事前検証する。
 3. 対話入力があるツールはRhinoのコマンドラインで指示に従う。実行後、結果を確認してから元ファイルに反映する。
 
-Pythonの追加パッケージはコード上では要求しておらず、主にRhinoCommon／`rhinoscriptsyntax`／`scriptcontext`を使います。ただし**動作保証ではありません**。
+主にRhinoCommon／`rhinoscriptsyntax`／`scriptcontext`を使います。**PNGアルファ修正ツールはPillowも必要**で、ScriptEditorの依存宣言から取得します。その他の従来ツールはコード上では追加パッケージを要求していません。ただし**動作保証ではありません**。
 
 ### シート・印刷の順番
 
