@@ -1,6 +1,6 @@
 # Rhino Tools — SATW
 
-Rhinoで日々繰り返す作図・レイヤー整理・色調整・印刷のための、小さなPythonツール集です。**10ツールをこの1ページから探して使えます。**
+Rhinoで日々繰り返す作図・レイヤー整理・色調整・印刷のための、小さなPythonツール集です。**11ツールをこの1ページから探して使えます。**
 
 [選択](#1-選択) ｜ [レイヤー整理](#2-レイヤー整理) ｜ [色・マテリアル](#3-色マテリアル) ｜ [シート・印刷](#4-シート印刷) ｜ [使い方](#使い方) ｜ [注意事項](#注意事項)
 
@@ -29,6 +29,8 @@ Rhinoで日々繰り返す作図・レイヤー整理・色調整・印刷のた
 | **オブジェクト固有色で分類** | 選択オブジェクトをRGB別の子レイヤーに分け、同色材質を設定 | 選択物／レイヤー・材質変更 | [コード](scripts/CustomColor2Layer.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/CustomColor2Layer.py) |
 | **ハッチを色別レイヤーに分類** | 選択ハッチをRGB別レイヤーに分け、レイヤーに材質を割り当てる | 選択ハッチ／レイヤー・材質変更 | [コード](scripts/Hatch2LayerWithMaterial.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/Hatch2LayerWithMaterial.py) |
 | **レイヤー色から材質を生成** | 全レイヤーの色を基に材質を作成・再利用して割り当てる | 図面全体／材質変更・要改修 | [コード](scripts/RANDOM3.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/RANDOM3.py) |
+
+| **V-Ray Picture透明PNG変換（試験版）** | 透明設定済みV-Ray Genericを各Picture用に複製し、元PNGを引き継ぐ。ジオメトリ・UVは変更しない | 選択Picture／マテリアル変更、実機検証待ち | [コード](scripts/vray_picture_alpha.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/feature/vray-picture-alpha/scripts/vray_picture_alpha.py) · [手順](docs/vray_picture_alpha.md) |
 
 ### 4. シート・印刷
 
@@ -87,3 +89,7 @@ Pythonの追加パッケージはコード上では要求しておらず、主�
 - Grasshopperの`.gh`やRhinoプラグインの`.rhp`はこのPythonツール一覧には含めていません。
 - ライセンス： [MIT](LICENSE)。
 
+
+### V-Ray Picture透明PNG変換（追加・実機未検証）
+
+透明度がV-Rayで正しくレンダリングできるGenericを1つ手作業で作成し、[手順書](docs/vray_picture_alpha.md)に従い、選択Pictureへ個別に複製して適用します。**V-Ray側アルファ設定自体を自動生成するツールではありません。** PNGの取得やBitmapパスの書き換えがAPIで確認できない場合は対象をスキップします。保存前にバックアップしてください。
