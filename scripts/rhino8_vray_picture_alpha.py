@@ -14,7 +14,7 @@ import tempfile
 import struct
 import zlib
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 class PreflightError(RuntimeError):
@@ -261,6 +261,16 @@ class RhinoHost:
         self.document_path = doc.Path
         self.generation = Rhino.Render.RenderTexture.TextureGeneration.Disallow
         self.context = Rhino.Render.RenderContent.ChangeContexts.Program
+        self.serialization = Rhino.FileIO.SerializationOptions()
+        self.serialization.WriteUserData = True
+
+    def data_signature(self, value):
+        # ObjectAttributes/TextureMapping are not GeometryBase and have no DataCRC.
+        serialized = value.ToJSON(self.serialization)
+        if not serialized:
+            raise PreflightError("Cannot serialize attributes or mapping for comparison")
+        canonical = json.dumps(json.loads(serialized), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     def mapping_signature(self, obj):
         result = []
@@ -269,7 +279,9 @@ class RhinoHost:
                 channel, self.R.Geometry.Transform.Identity)
             if mapping is None:
                 raise PreflightError("Cannot read existing UV mapping channel")
-            result.append((int(channel), int(mapping.DataCRC(0)), matrix_values(transform)))
+            result.append((int(channel), self.data_signature(mapping),
+                           matrix_values(mapping.PrimitiveTransform),
+                           matrix_values(mapping.UvwTransform), matrix_values(transform)))
         return result
 
     def inspect(self, object_id):
@@ -297,7 +309,7 @@ class RhinoHost:
         finally:
             simulation.Dispose()
         return {"id": obj.Id, "attributes": obj.Attributes.Duplicate(),
-                "attribute_crc": int(obj.Attributes.DataCRC(0)),
+                "attribute_signature": self.data_signature(obj.Attributes),
                 "geometry_crc": int(obj.Geometry.DataCRC(0)),
                 "object_mapping": self.mapping_signature(obj),
                 "bitmap": bitmap, "bitmap_hash": int(bitmap.RenderHash),
@@ -306,7 +318,7 @@ class RhinoHost:
     def check_original(self, item):
         obj = self.doc.Objects.FindId(item["id"])
         if (obj is None or int(obj.Geometry.DataCRC(0)) != item["geometry_crc"]
-                or int(obj.Attributes.DataCRC(0)) != item["attribute_crc"]
+                or self.data_signature(obj.Attributes) != item["attribute_signature"]
                 or int(item["bitmap"].RenderHash) != item["bitmap_hash"]
                 or self.mapping_signature(obj) != item["object_mapping"]):
             raise PreflightError("Picture changed after inspection: " + str(item["id"]))
@@ -414,7 +426,7 @@ class RhinoHost:
         if not self.doc.Objects.ModifyAttributes(item["id"], item["attributes"], True):
             raise ApplyError("Cannot restore attributes")
         obj = self.doc.Objects.FindId(item["id"])
-        if (int(obj.Attributes.DataCRC(0)) != item["attribute_crc"]
+        if (self.data_signature(obj.Attributes) != item["attribute_signature"]
                 or int(obj.Geometry.DataCRC(0)) != item["geometry_crc"]
                 or self.mapping_signature(obj) != item["object_mapping"]):
             raise ApplyError("Restored state does not match snapshot")
