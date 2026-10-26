@@ -23,6 +23,14 @@ Rhinoで日々繰り返す作図・レイヤー整理・色調整・印刷のた
 
 ### 3. 色・マテリアル
 
+**Picture / V-Ray PNGアルファ（診断版・適用未実装）**：
+[説明・未検証事項](docs/vray-picture-alpha.md) ·
+[診断コード](scripts/rhino8_vray_picture_alpha_probe.py) ·
+[テスト](tests/test_vray_picture_alpha_probe.py)。
+Rhino 8 Windows / V-Ray 7.40.02を対象に調査中です。
+選択物ごとの画像パス候補と連携情報を読み取るdry-runのみで、透明度を修正する最終版ではありません。
+適用は安全のため無効です。既存の10ツールの数には含めません。
+
 | ツール | 概要 | 対象・作用 | ファイル |
 | --- | --- | --- | --- |
 | **レイヤー色をランダム化** | すべてのレイヤーにランダムな表示色を設定 | 図面全体／色変更 | [コード](scripts/RandomLayerColor.py) · [↓ .py](https://raw.githubusercontent.com/satw-jp/rhino-tools/main/scripts/RandomLayerColor.py) |
